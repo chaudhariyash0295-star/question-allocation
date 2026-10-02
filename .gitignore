@@ -1,0 +1,21 @@
+# Uploads (user files – excluded to avoid large binary blobs)
+uploads/questions/*
+uploads/exports/*
+!uploads/questions/.gitkeep
+!uploads/exports/.gitkeep
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# PHP / Server logs
+*.log
+error_log
+
+# XAMPP environment-specific
+config/local.php
+
+# Node (just in case)
+node_modules/

@@ -1,0 +1,11 @@
+Question No,Question
+1,Develop a PHP application with MySQL to perform student grade management with GPA calculation.
+2,Write a JavaScript script to validate an online order form with credit card number Luhn algorithm check.
+3,Create a responsive multi-page dashboard layout using CSS Grid and Flexbox with a collapsible sidebar.
+4,Develop a PHP session-based multi-step survey form that stores answers across pages and inserts into MySQL.
+5,Write an AJAX-powered real-time username availability checker in PHP and MySQL using Fetch API.
+6,Create a PHP program to generate dynamic PDF-style printable hall tickets from student exam records.
+7,Implement a token-based password reset simulation in PHP with 15-minute token expiry.
+8,Design an interactive product gallery in JavaScript with thumbnail navigation and modal image viewer.
+9,Write a PHP script to read a JSON payload from an API endpoint, parse it, and display it in a styled Bootstrap card grid.
+10,Build a secure contact query system in PHP that validates all inputs against XSS and SQL injection.

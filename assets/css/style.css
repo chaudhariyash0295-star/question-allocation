@@ -1,0 +1,309 @@
+/*
+ * SMART QUESTION ALLOCATION SYSTEM
+ * Modern Academic ERP Stylesheet
+ */
+
+:root {
+  --primary-navy: #0f2744;
+  --primary-blue: #1e40af;
+  --primary-accent: #2563eb;
+  --primary-hover: #1d4ed8;
+  --bg-slate: #f8fafc;
+  --bg-sidebar: #0f172a;
+  --bg-sidebar-hover: #1e293b;
+  --text-dark: #1e293b;
+  --text-muted: #64748b;
+  --border-light: #e2e8f0;
+  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --card-hover-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-slate);
+  color: var(--text-dark);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Layout Elements */
+.app-wrapper {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Sidebar */
+.app-sidebar {
+  width: 270px;
+  background-color: var(--bg-sidebar);
+  color: #e2e8f0;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  z-index: 1040;
+}
+
+.sidebar-brand {
+  padding: 1.25rem 1.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-decoration: none;
+}
+
+.sidebar-brand i {
+  color: #38bdf8;
+  font-size: 1.35rem;
+}
+
+.sidebar-menu {
+  list-style: none;
+  padding: 1rem 0.75rem;
+  margin: 0;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.sidebar-heading {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  padding: 0.75rem 0.75rem 0.25rem 0.75rem;
+  font-weight: 600;
+}
+
+.sidebar-item {
+  margin-bottom: 0.25rem;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  color: #cbd5e1;
+  text-decoration: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.sidebar-link:hover {
+  background-color: var(--bg-sidebar-hover);
+  color: #ffffff;
+}
+
+.sidebar-link.active {
+  background-color: var(--primary-accent);
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+}
+
+.sidebar-link i {
+  width: 20px;
+  text-align: center;
+  font-size: 1rem;
+}
+
+/* Main Content Area */
+.app-main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Top Navbar */
+.app-navbar {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--border-light);
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+.page-content {
+  padding: 1.75rem;
+  flex-grow: 1;
+}
+
+/* Cards & Stats */
+.card {
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  box-shadow: var(--card-shadow);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  background-color: #ffffff;
+}
+
+.card:hover {
+  box-shadow: var(--card-hover-shadow);
+}
+
+.card-header {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--border-light);
+  font-weight: 600;
+  padding: 1rem 1.25rem;
+}
+
+.stat-card {
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stat-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+/* Question Chit Display for Student */
+.chit-container {
+  background: #ffffff;
+  border: 2px dashed #3b82f6;
+  border-radius: 1rem;
+  padding: 2.5rem;
+  position: relative;
+  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.15);
+}
+
+.chit-badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2563eb;
+  color: white;
+  padding: 0.35rem 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+.chit-question-text {
+  font-size: 1.25rem;
+  line-height: 1.75;
+  color: #1e293b;
+  font-weight: 500;
+  background-color: #f8fafc;
+  border-left: 4px solid #2563eb;
+  padding: 1.5rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+  margin: 1.5rem 0;
+}
+
+/* Countdown Timer */
+.exam-timer-box {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: white;
+  border-radius: 0.75rem;
+  padding: 1rem 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.timer-digits {
+  font-size: 1.85rem;
+  font-weight: 800;
+  font-family: 'Courier New', Courier, monospace;
+  color: #38bdf8;
+  letter-spacing: 0.08em;
+}
+
+/* Tables */
+.table thead th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 2px solid var(--border-light);
+  padding: 0.85rem 1rem;
+}
+
+.table tbody td {
+  padding: 0.85rem 1rem;
+  vertical-align: middle;
+  font-size: 0.9rem;
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--primary-accent);
+  border-color: var(--primary-accent);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+/* Print Styles */
+@media print {
+  .app-sidebar, .app-navbar, .no-print, .btn, .alert {
+    display: none !important;
+  }
+  .app-main, .page-content, body {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .card, .chit-container {
+    box-shadow: none !important;
+    border: 1px solid #000 !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 991.98px) {
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: -270px;
+  }
+  .app-sidebar.show {
+    left: 0;
+  }
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1030;
+    display: none;
+  }
+  .sidebar-backdrop.show {
+    display: block;
+  }
+}
