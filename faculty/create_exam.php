@@ -42,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $duration_minutes = (int)($_POST['duration_minutes'] ?? 120);
     $total_marks = (int)($_POST['total_marks'] ?? 50);
     $allocation_rule = $_POST['allocation_rule'] ?? 'random_no_consecutive';
+    $questions_per_student = max(1, min(10, (int)($_POST['questions_per_student'] ?? 1)));
     $instructions = trim($_POST['instructions'] ?? '');
     $status = $_POST['status'] ?? 'scheduled';
 
@@ -50,13 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $stmt = $pdo->prepare("
-                INSERT INTO exams (exam_name, exam_code, subject_id, semester_id, division_id, batch_id, faculty_id, exam_date, start_time, end_time, duration_minutes, total_marks, allocation_rule, instructions, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO exams (exam_name, exam_code, subject_id, semester_id, division_id, batch_id, faculty_id, exam_date, start_time, end_time, duration_minutes, total_marks, allocation_rule, questions_per_student, instructions, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $exam_name, $exam_code, $subject_id, $semester_id, $division_id, $batch_id,
                 $facultyId, $exam_date, $start_time, $end_time, $duration_minutes,
-                $total_marks, $allocation_rule, $instructions, $status
+                $total_marks, $allocation_rule, $questions_per_student, $instructions, $status
             ]);
             set_flash('success', "Practical examination '{$exam_name}' created successfully. You can start it when the lab session begins.");
             header("Location: start_exam.php");
@@ -165,6 +166,16 @@ include __DIR__ . '/../includes/header.php';
                         <option value="random_no_consecutive" selected>No Same Question for Consecutive Students</option>
                         <option value="pure_random">Pure Random (Non-Adjacent)</option>
                     </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Questions Per Student <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="fa-solid fa-layer-group text-primary"></i></span>
+                        <input type="number" name="questions_per_student" class="form-control" value="1" min="1" max="10" required
+                               placeholder="e.g. 1 or 2">
+                        <span class="input-group-text bg-light text-muted small">per student</span>
+                    </div>
+                    <div class="form-text text-muted">Enter 1 for single question, 2 for two questions, etc.</div>
                 </div>
 
                 <div class="col-12">

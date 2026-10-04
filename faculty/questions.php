@@ -109,6 +109,38 @@ if ($action === 'toggle' && $id > 0) {
     exit;
 }
 
+// DELETE ALL — respects active subject/search filter
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_all') {
+    $delWhere = ["q.question_id NOT IN (SELECT DISTINCT question_id FROM question_allocations WHERE question_id IS NOT NULL)"];
+    $delParams = [];
+
+    if ($filterSubject > 0) {
+        $delWhere[] = "q.subject_id = ?";
+        $delParams[] = $filterSubject;
+    }
+    if (!empty($search)) {
+        $delWhere[] = "q.question_text LIKE ?";
+        $delParams[] = "%{$search}%";
+    }
+
+    $delClause = implode(" AND ", $delWhere);
+    // Collect IDs first, then delete
+    $idStmt = $pdo->prepare("SELECT q.question_id FROM questions q WHERE {$delClause}");
+    $idStmt->execute($delParams);
+    $ids = $idStmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!empty($ids)) {
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $delStmt = $pdo->prepare("DELETE FROM questions WHERE question_id IN ({$placeholders})");
+        $delStmt->execute($ids);
+        set_flash('success', count($ids) . ' question(s) deleted successfully.');
+    } else {
+        set_flash('info', 'No deletable questions found (questions linked to exams are protected).');
+    }
+    header("Location: questions.php?subject_id=" . $filterSubject . ($search ? '&search=' . urlencode($search) : ''));
+    exit;
+}
+
 $where = ["1=1"];
 $params = [];
 
@@ -142,13 +174,21 @@ include __DIR__ . '/../includes/header.php';
         <h3 class="fw-bold text-dark mb-1">Subject Question Bank</h3>
         <p class="text-muted small mb-0">Practical problem statements and lab tasks prepared for digital examination distribution.</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
         <a href="upload_questions.php" class="btn btn-outline-success btn-sm">
             <i class="fa-solid fa-file-excel me-1"></i> Excel Import
         </a>
         <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addQModal">
             <i class="fa-solid fa-plus me-1"></i> Add Single Question
         </button>
+        <?php if (!empty($questions)): ?>
+        <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteAllModal">
+            <i class="fa-solid fa-trash-can me-1"></i> Delete All
+            <?php if ($filterSubject > 0 || !empty($search)): ?>
+            <span class="badge bg-light text-danger ms-1"><?= count($questions) ?></span>
+            <?php endif; ?>
+        </button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -374,6 +414,45 @@ include __DIR__ . '/../includes/header.php';
                     <button type="submit" class="btn btn-primary">Save Question</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete All Confirmation Modal -->
+<div class="modal fade" id="deleteAllModal" tabindex="-1" aria-labelledby="deleteAllModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold" id="deleteAllModalLabel">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i> Confirm Delete All
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">You are about to permanently delete
+                    <strong class="text-danger"><?= count($questions) ?> question(s)</strong>
+                    <?php if ($filterSubject > 0 || !empty($search)): ?>
+                        matching the current filter
+                    <?php else: ?>
+                        from the entire Question Bank
+                    <?php endif; ?>.
+                </p>
+                <div class="alert alert-warning d-flex align-items-start gap-2 mb-0">
+                    <i class="fa-solid fa-shield-halved mt-1"></i>
+                    <div>
+                        <strong>Protected:</strong> Questions already allocated to exams will <em>not</em> be deleted.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="questions.php?subject_id=<?= $filterSubject ?>&search=<?= urlencode($search) ?>" style="display:inline;">
+                    <input type="hidden" name="action" value="delete_all">
+                    <button type="submit" class="btn btn-danger fw-bold">
+                        <i class="fa-solid fa-trash-can me-1"></i> Yes, Delete All
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </div>

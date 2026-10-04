@@ -15,7 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if ($examId > 0) {
         $result = allocate_exam_questions($pdo, $examId, $userId);
         if ($result['success']) {
-            set_flash('success', "Exam Started Successfully! Questions Allocated: {$result['allocated_count']}/{$result['total_students']}. Examinees can now access their question chits.");
+            $qps = $result['qps'] ?? 1;
+            set_flash('success', "Exam Started! {$qps} question(s) allocated per student. Total: {$result['allocated_count']} allocations for {$result['total_students']} students.");
             header("Location: allocations.php?exam_id=" . $examId);
             exit;
         } else {
@@ -173,6 +174,10 @@ include __DIR__ . '/../includes/header.php';
                                                             <div class="d-flex justify-content-between mb-1">
                                                                 <span class="text-muted">Total Questions:</span>
                                                                 <strong class="text-success"><?= $ex['available_questions'] ?> Questions</strong>
+                                                            </div>
+                                                            <div class="d-flex justify-content-between mb-1">
+                                                                <span class="text-muted">Questions Per Student:</span>
+                                                                <span class="badge bg-primary fs-6"><?= (int)($ex['questions_per_student'] ?? 1) ?> per student</span>
                                                             </div>
                                                             <div class="d-flex justify-content-between">
                                                                 <span class="text-muted">Rule:</span>

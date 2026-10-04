@@ -23,6 +23,13 @@ $stuStmt = $pdo->prepare("
 $stuStmt->execute([$studentId]);
 $student = $stuStmt->fetch();
 
+// Guard: student profile must exist
+if (!$student) {
+    $_SESSION['flash_error'] = 'Student profile not found. Please contact the administrator.';
+    header('Location: ../logout.php');
+    exit;
+}
+
 // Find active exam if no exam_id provided
 if (!$examId) {
     $findStmt = $pdo->prepare("
@@ -30,7 +37,7 @@ if (!$examId) {
         WHERE batch_id = ? AND status = 'running' 
         ORDER BY exam_id DESC LIMIT 1
     ");
-    $findStmt->execute([$student['batch_id']]);
+    $findStmt->execute([(int)$student['batch_id']]);
     $examId = (int)$findStmt->fetchColumn();
 }
 
@@ -40,22 +47,30 @@ if (!$examId) {
     exit;
 }
 
-// Fetch Exam & Student's Allocated Question
+// Fetch Exam details
 $stmt = $pdo->prepare("
     SELECT e.*, s.subject_name, s.subject_code,
-           qa.allocation_id, qa.allocated_at, qa.status as alloc_status,
-           q.question_number, q.question_text,
            f_u.name as examiner_name
     FROM exams e
     JOIN subjects s ON e.subject_id = s.subject_id
     JOIN faculty f ON e.faculty_id = f.faculty_id
     JOIN users f_u ON f.user_id = f_u.user_id
-    LEFT JOIN question_allocations qa ON e.exam_id = qa.exam_id AND qa.student_id = ?
-    LEFT JOIN questions q ON qa.question_id = q.question_id
     WHERE e.exam_id = ?
 ");
-$stmt->execute([$studentId, $examId]);
+$stmt->execute([$examId]);
 $exam = $stmt->fetch();
+
+// Fetch ALL allocated questions for this student (ordered by slot_number)
+$allocStmt = $pdo->prepare("
+    SELECT qa.allocation_id, qa.slot_number, qa.allocated_at, qa.status as alloc_status,
+           q.question_number, q.question_text
+    FROM question_allocations qa
+    JOIN questions q ON qa.question_id = q.question_id
+    WHERE qa.exam_id = ? AND qa.student_id = ?
+    ORDER BY qa.slot_number ASC
+");
+$allocStmt->execute([$examId, $studentId]);
+$allocatedQuestions = $allocStmt->fetchAll();
 
 if (!$exam) {
     set_flash('error', 'Practical examination record not found.');
@@ -174,32 +189,44 @@ include __DIR__ . '/../includes/header.php';
         </div>
 
         <!-- THE QUESTION CHIT BOX -->
-        <?php if ($exam['allocation_id'] && !empty($exam['question_text'])): ?>
+        <?php if (!empty($allocatedQuestions)): ?>
+            <?php $qps = count($allocatedQuestions); ?>
             <div class="chit-container text-center">
                 <div class="chit-badge">
-                    <i class="fa-solid fa-ticket-simple me-1"></i> Your Allocated Question Chit
+                    <i class="fa-solid fa-ticket-simple me-1"></i>
+                    Your Allocated Question<?= $qps > 1 ? 's' : ' Chit' ?>
+                    <?php if ($qps > 1): ?>
+                    <span class="badge bg-primary ms-2"><?= $qps ?> Questions</span>
+                    <?php endif; ?>
                 </div>
 
-                <div class="my-3">
-                    <span class="badge bg-primary fs-4 px-4 py-2 shadow-sm rounded-pill">
-                        QUESTION NO. <?= e($exam['question_number']) ?>
+                <?php foreach ($allocatedQuestions as $idx => $aq): ?>
+                <?php $slotLabel = $qps > 1 ? 'Question ' . $aq['slot_number'] . ' of ' . $qps : 'QUESTION NO.'; ?>
+
+                <div class="my-4 <?= $qps > 1 ? 'border rounded-3 p-3 bg-light' : '' ?>">
+                    <span class="badge bg-primary fs-<?= $qps > 1 ? '5' : '4' ?> px-4 py-2 shadow-sm rounded-pill mb-3 d-inline-block">
+                        <?= $slotLabel ?> <?= $qps > 1 ? '' : e($aq['question_number']) ?>
+                        <?php if ($qps > 1): ?>
+                        &nbsp;<span class="badge bg-light text-primary fs-6">#<?= e($aq['question_number']) ?></span>
+                        <?php endif; ?>
                     </span>
-                </div>
 
-                <div class="chit-question-text text-start shadow-sm">
-                    <?= nl2br(e($exam['question_text'])) ?>
-                </div>
+                    <div class="chit-question-text text-start shadow-sm <?= $qps > 1 ? 'mt-2' : '' ?>">
+                        <?= nl2br(e($aq['question_text'])) ?>
+                    </div>
 
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 text-muted small mt-4 pt-3 border-top">
-                    <div>
-                        <i class="fa-solid fa-fingerprint me-1 text-primary"></i> 
-                        Chit Allocation ID: <code>SQAS-AL-<?= str_pad($exam['allocation_id'], 6, '0', STR_PAD_LEFT) ?></code>
-                    </div>
-                    <div>
-                        <i class="fa-solid fa-calendar-check me-1 text-success"></i> 
-                        Timestamp: <strong><?= format_datetime($exam['allocated_at']) ?></strong>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 text-muted small mt-3 pt-2 border-top">
+                        <div>
+                            <i class="fa-solid fa-fingerprint me-1 text-primary"></i>
+                            Chit ID: <code>SQAS-AL-<?= str_pad($aq['allocation_id'], 6, '0', STR_PAD_LEFT) ?></code>
+                        </div>
+                        <div>
+                            <i class="fa-solid fa-calendar-check me-1 text-success"></i>
+                            Allocated: <strong><?= format_datetime($aq['allocated_at']) ?></strong>
+                        </div>
                     </div>
                 </div>
+                <?php endforeach; ?>
             </div>
         <?php else: ?>
             <div class="alert alert-warning text-center p-4">

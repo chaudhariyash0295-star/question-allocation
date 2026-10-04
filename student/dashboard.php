@@ -23,6 +23,13 @@ $stuStmt = $pdo->prepare("
 $stuStmt->execute([$studentId]);
 $student = $stuStmt->fetch();
 
+// Guard: student profile must exist
+if (!$student) {
+    $_SESSION['flash_error'] = 'Student profile not found. Please contact the administrator.';
+    header('Location: ../logout.php');
+    exit;
+}
+
 // Check for Active / Running Exam for this student's batch
 $activeExamStmt = $pdo->prepare("
     SELECT e.*, s.subject_name, s.subject_code,
@@ -35,8 +42,8 @@ $activeExamStmt = $pdo->prepare("
     WHERE e.batch_id = ? AND e.status = 'running'
     LIMIT 1
 ");
-$activeExamStmt->execute([$studentId, $student['batch_id']]);
-$activeExam = $activeExamStmt->fetch();
+$activeExamStmt->execute([$studentId, (int)$student['batch_id']]);
+$activeExam = $activeExamStmt->fetch() ?: null;
 
 // Fetch Upcoming Scheduled Exams
 $upcomingStmt = $pdo->prepare("
@@ -46,7 +53,7 @@ $upcomingStmt = $pdo->prepare("
     WHERE e.batch_id = ? AND e.status = 'scheduled'
     ORDER BY e.exam_date ASC, e.start_time ASC
 ");
-$upcomingStmt->execute([$student['batch_id']]);
+$upcomingStmt->execute([(int)$student['batch_id']]);
 $upcomingExams = $upcomingStmt->fetchAll();
 
 // Fetch Completed Exams History for this student

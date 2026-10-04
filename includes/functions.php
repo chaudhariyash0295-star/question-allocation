@@ -156,105 +156,93 @@ function allocate_exam_questions(PDO $pdo, int $exam_id, int $allocated_by): arr
         ];
     }
 
-    $numStudents = count($students);
+    $numStudents  = count($students);
     $numQuestions = count($questions);
+    $qps          = max(1, (int)($exam['questions_per_student'] ?? 1)); // questions per student
 
-    // Rule validation: If 2 or more students, at least 2 questions are strictly needed for consecutive non-collision
-    if ($numStudents > 1 && $numQuestions < 2) {
+    // Minimum questions needed: qps + 1 for consecutive-safe allocation
+    $minRequired = ($numStudents > 1) ? max($qps + 1, 2) : $qps;
+    if ($numQuestions < $minRequired) {
         return [
             'success' => false,
-            'message' => 'At least 2 questions are required in the question bank to guarantee non-consecutive allocation for ' . $numStudents . ' students.'
+            'message' => "At least {$minRequired} active questions are needed in the bank to allocate {$qps} question(s) per student to {$numStudents} students without consecutive duplicates. Currently available: {$numQuestions}."
         ];
     }
 
-    // 4. SMART ALLOCATION ALGORITHM
-    $allocations = []; // [student_id => question_id]
-    $qIds = array_column($questions, 'question_id');
+    // 4. SMART MULTI-QUESTION ALLOCATION ALGORITHM
+    // $allocations[student_id] = [slot1_qid, slot2_qid, ...] — all distinct per student
+    $allocations = [];
+    $qIds        = array_column($questions, 'question_id');
 
-    if ($exam['allocation_rule'] === 'pure_random' && $numQuestions >= 2) {
-        // Pure random with consecutive check
-        $lastQ = null;
-        foreach ($students as $student) {
-            $pool = array_values(array_filter($qIds, fn($qid) => $qid !== $lastQ));
-            $chosen = $pool[array_rand($pool)];
-            $allocations[$student['student_id']] = $chosen;
-            $lastQ = $chosen;
-        }
-    } else {
-        // DEFAULT: 'random_no_consecutive' with fair uniform frequency distribution
-        if ($numQuestions >= $numStudents) {
-            // Case A: More or equal questions than students
-            // Shuffle questions and assign unique question to each student. Zero collision!
-            $shuffled = $qIds;
-            shuffle($shuffled);
-            foreach ($students as $idx => $student) {
-                $allocations[$student['student_id']] = $shuffled[$idx];
+    // Track last question per slot across the student sequence (for no-consecutive rule)
+    $lastQPerSlot = array_fill(0, $qps, null);
+
+    foreach ($students as $student) {
+        $sid          = $student['student_id'];
+        $chosen       = [];   // question IDs chosen for this student (one per slot)
+        $usedThisStudent = []; // avoid same question twice for the same student
+
+        for ($slot = 0; $slot < $qps; $slot++) {
+            // Build candidate pool: exclude previously chosen in other slots for this student
+            //                       AND exclude the last question of same slot for prev student
+            $lastSameSlot = $lastQPerSlot[$slot];
+            $pool = array_values(array_filter(
+                $qIds,
+                fn($qid) => !in_array($qid, $usedThisStudent, true) && $qid !== $lastSameSlot
+            ));
+
+            if (empty($pool)) {
+                // Relax consecutive constraint as fallback (only exclude already-used by this student)
+                $pool = array_values(array_filter($qIds, fn($qid) => !in_array($qid, $usedThisStudent, true)));
             }
-        } else {
-            // Case B: More students than questions (e.g. 30 students, 10 questions)
-            // Distribute with maximum fairness (uniform counts) while strictly avoiding consecutive duplicates
-            $counts = array_fill_keys($qIds, 0);
-            $lastQ = null;
 
-            foreach ($students as $student) {
-                // Filter out the question of the previous student to prevent consecutive duplicate
-                $candidateIds = array_values(array_filter($qIds, fn($qid) => $qid !== $lastQ));
-
-                // Find candidate questions with minimum allocation count so far
-                $minCount = PHP_INT_MAX;
-                foreach ($candidateIds as $cid) {
-                    if ($counts[$cid] < $minCount) {
-                        $minCount = $counts[$cid];
-                    }
-                }
-
-                $bestCandidates = array_values(array_filter($candidateIds, fn($cid) => $counts[$cid] === $minCount));
-
-                // Randomly select among the least-used non-consecutive candidates
-                $chosen = $bestCandidates[array_rand($bestCandidates)];
-
-                $allocations[$student['student_id']] = $chosen;
-                $counts[$chosen]++;
-                $lastQ = $chosen;
+            if (empty($pool)) {
+                // Last resort: allow any question (edge case: qps >= total questions)
+                $pool = $qIds;
             }
+
+            $pick = $pool[array_rand($pool)];
+            $chosen[]               = $pick;
+            $usedThisStudent[]      = $pick;
+            $lastQPerSlot[$slot]    = $pick;
         }
+
+        $allocations[$sid] = $chosen;
     }
 
     // 5. ATOMIC PERSISTENCE IN DATABASE
     try {
         $pdo->beginTransaction();
 
-        // Check if any existing allocations exist for this exam and remove them if draft/scheduled
         $delStmt = $pdo->prepare("DELETE FROM question_allocations WHERE exam_id = ?");
         $delStmt->execute([$exam_id]);
 
         $insStmt = $pdo->prepare("
-            INSERT INTO question_allocations (exam_id, student_id, question_id, allocated_at, allocated_by, status)
-            VALUES (?, ?, ?, NOW(), ?, 'allocated')
+            INSERT INTO question_allocations (exam_id, student_id, question_id, slot_number, allocated_at, allocated_by, status)
+            VALUES (?, ?, ?, ?, NOW(), ?, 'allocated')
         ");
 
+        $totalInserted = 0;
         foreach ($students as $student) {
             $sid = $student['student_id'];
-            $qid = $allocations[$sid];
-            $insStmt->execute([$exam_id, $sid, $qid, $allocated_by]);
+            foreach ($allocations[$sid] as $slot => $qid) {
+                $insStmt->execute([$exam_id, $sid, $qid, $slot + 1, $allocated_by]);
+                $totalInserted++;
+            }
         }
 
-        // Update Exam Status to 'running' and set started_at
-        $updateExam = $pdo->prepare("
-            UPDATE exams 
-            SET status = 'running', started_at = NOW() 
-            WHERE exam_id = ?
-        ");
+        $updateExam = $pdo->prepare("UPDATE exams SET status = 'running', started_at = NOW() WHERE exam_id = ?");
         $updateExam->execute([$exam_id]);
 
         $pdo->commit();
 
         return [
             'success'         => true,
-            'message'         => 'Exam started and ' . count($allocations) . ' questions allocated successfully without consecutive duplicates.',
+            'message'         => "Exam started! {$qps} question(s) allocated to each of {$numStudents} students ({$totalInserted} total allocations).",
             'total_students'  => $numStudents,
             'total_questions' => $numQuestions,
-            'allocated_count' => count($allocations)
+            'allocated_count' => $totalInserted,
+            'qps'             => $qps
         ];
     } catch (Exception $e) {
         if ($pdo->inTransaction()) {
@@ -266,6 +254,7 @@ function allocate_exam_questions(PDO $pdo, int $exam_id, int $allocated_by): arr
         ];
     }
 }
+
 
 /**
  * Built-in Excel / CSV Reader
